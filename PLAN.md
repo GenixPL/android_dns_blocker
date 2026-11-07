@@ -12,8 +12,8 @@ Personal-use Android app that blocks YouTube and other blacklisted sites via a l
 ## Steps
 
 ### 1. Project setup
-- [ ] Create Android project (Kotlin, min SDK 26).
-- [ ] Declare `BIND_VPN_SERVICE` service and foreground-service permissions in the manifest.
+- [x] Create Android project (Kotlin, Compose, min SDK 31).
+- [x] Declare `BIND_VPN_SERVICE` service and foreground-service permissions in the manifest.
 
 ### 2. VPN plumbing
 - [ ] Implement `VpnService` subclass.
