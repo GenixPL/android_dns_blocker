@@ -35,6 +35,16 @@ class BlocklistTest {
     }
 
     @Test
+    fun dohDomainsBlockResolversAndFirefoxCanary() {
+        val l = Blocklist(Blocklist.DOH_DOMAINS)
+        assertTrue(l.isBlocked("dns.google"))
+        assertTrue(l.isBlocked("mozilla.cloudflare-dns.com"))
+        assertTrue(l.isBlocked("use-application-dns.net"))
+        assertFalse(l.isBlocked("google.com"))
+        assertFalse(l.isBlocked("example.com"))
+    }
+
+    @Test
     fun emptyEntriesAndNamesNeverMatch() {
         val l = Blocklist(listOf("", " ", "."))
         assertFalse(l.isBlocked(""))

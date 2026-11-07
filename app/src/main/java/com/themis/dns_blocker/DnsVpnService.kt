@@ -22,7 +22,7 @@ class DnsVpnService : VpnService() {
 
     private var tun: ParcelFileDescriptor? = null
     private var reader: Thread? = null
-    private val blocklist = Blocklist(Blocklist.DEFAULT_DOMAINS)
+    private val blocklist = Blocklist(Blocklist.DEFAULT_DOMAINS + Blocklist.DOH_DOMAINS)
     private val doh = DohClient()
     private var forwarder: ExecutorService = Executors.newFixedThreadPool(FORWARDER_THREADS)
 

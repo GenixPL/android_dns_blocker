@@ -28,5 +28,25 @@ class Blocklist(domains: Collection<String>) {
             "ytimg.com",
             "youtubei.googleapis.com",
         )
+
+        // Public DoH/DoT resolvers, so browsers and apps can't bypass us with their own encrypted DNS.
+        // Our own upstream (DohClient) uses an IP literal, so it is unaffected.
+        val DOH_DOMAINS = listOf(
+            "dns.google",
+            "dns.google.com",
+            "cloudflare-dns.com",
+            "one.one.one.one",
+            "dns.cloudflare.com",
+            "dns.quad9.net",
+            "dns.nextdns.io",
+            "doh.opendns.com",
+            "dns.adguard.com",
+            "dns.adguard-dns.com",
+            "doh.cleanbrowsing.org",
+            "dns.sb",
+            "doh.libredns.gr",
+            // Firefox disables its automatic DoH when this canary domain returns NXDOMAIN.
+            "use-application-dns.net",
+        )
     }
 }

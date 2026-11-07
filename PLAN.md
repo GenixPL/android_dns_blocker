@@ -38,8 +38,8 @@ Personal-use Android app that blocks YouTube and other blacklisted sites via a l
 - [ ] Use short TTLs on answers to limit stale cache (needs answer-record rewriting; not done).
 
 ### 6. Close bypasses
-- [ ] Block known DoH hostnames (`dns.google`, `cloudflare-dns.com`, ...) so browsers can't use their own encrypted DNS.
-- [ ] Consider blocking DoT (port 853) if full traffic routing is added later.
+- [x] Block known DoH hostnames (`dns.google`, `cloudflare-dns.com`, ...) so browsers can't use their own encrypted DNS.
+- [ ] Consider blocking DoT (port 853) if full traffic routing is added later (not possible with DNS-only routing).
 
 ### 7. App UI
 - [ ] Toggle to start/stop the VPN.
