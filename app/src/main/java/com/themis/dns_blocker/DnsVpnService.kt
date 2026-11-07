@@ -13,6 +13,7 @@ import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.io.IOException
 
 class DnsVpnService : VpnService() {
@@ -58,12 +59,16 @@ class DnsVpnService : VpnService() {
 
     private fun readLoop(fd: ParcelFileDescriptor) {
         val input = FileInputStream(fd.fileDescriptor)
+        val output = FileOutputStream(fd.fileDescriptor)
         val buf = ByteArray(MTU)
         try {
             while (!Thread.currentThread().isInterrupted) {
                 val n = input.read(buf)
                 if (n <= 0) continue
-                parseDnsQueryName(buf, n)?.let { Log.d(TAG, "DNS query: $it") }
+                val query = parseDnsQuery(buf, n) ?: continue
+                Log.d(TAG, "DNS query: ${query.name}")
+                // Interim: answer everything with NXDOMAIN until blocking and forwarding exist.
+                output.write(buildUdpReply(query, buildDnsResponse(query, RCODE_NXDOMAIN)))
             }
         } catch (e: IOException) {
             Log.d(TAG, "tun reader stopped: ${e.message}")

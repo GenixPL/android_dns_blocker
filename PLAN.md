@@ -23,9 +23,9 @@ Personal-use Android app that blocks YouTube and other blacklisted sites via a l
 - [x] Read packets from the TUN and log the DNS queries seen (sanity check).
 
 ### 3. DNS handling
-- [ ] Parse IPv4/UDP packets, extract the DNS question.
-- [ ] Handle TCP DNS too (optional for v1).
-- [ ] Build response packets (swap src/dst, fix IP/UDP checksums) and write back to the TUN.
+- [x] Parse IPv4/UDP packets, extract the DNS question.
+- [ ] Handle TCP DNS too (optional for v1; deferred, UDP covers normal lookups).
+- [x] Build response packets (swap src/dst, fix IP/UDP checksums) and write back to the TUN.
 
 ### 4. Blocking
 - [ ] Suffix-matching blocklist (`*.youtube.com` etc.).
