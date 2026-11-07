@@ -20,6 +20,7 @@ class DnsVpnService : VpnService() {
 
     private var tun: ParcelFileDescriptor? = null
     private var reader: Thread? = null
+    private val blocklist = Blocklist(Blocklist.DEFAULT_DOMAINS)
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
@@ -66,9 +67,11 @@ class DnsVpnService : VpnService() {
                 val n = input.read(buf)
                 if (n <= 0) continue
                 val query = parseDnsQuery(buf, n) ?: continue
-                Log.d(TAG, "DNS query: ${query.name}")
-                // Interim: answer everything with NXDOMAIN until blocking and forwarding exist.
-                output.write(buildUdpReply(query, buildDnsResponse(query, RCODE_NXDOMAIN)))
+                val blocked = blocklist.isBlocked(query.name)
+                Log.d(TAG, "DNS query: ${query.name}${if (blocked) " [blocked]" else ""}")
+                // Interim: allowed names get SERVFAIL until upstream forwarding exists.
+                val rcode = if (blocked) RCODE_NXDOMAIN else RCODE_SERVFAIL
+                output.write(buildUdpReply(query, buildDnsResponse(query, rcode)))
             }
         } catch (e: IOException) {
             Log.d(TAG, "tun reader stopped: ${e.message}")

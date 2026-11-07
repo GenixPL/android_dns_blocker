@@ -28,9 +28,9 @@ Personal-use Android app that blocks YouTube and other blacklisted sites via a l
 - [x] Build response packets (swap src/dst, fix IP/UDP checksums) and write back to the TUN.
 
 ### 4. Blocking
-- [ ] Suffix-matching blocklist (`*.youtube.com` etc.).
-- [ ] Respond `NXDOMAIN` or `0.0.0.0`/`::` for blocked names.
-- [ ] Seed list: `youtube.com`, `youtu.be`, `googlevideo.com`, `ytimg.com`, `youtubei.googleapis.com`, `youtube-nocookie.com`. Do not block all of `googleapis.com`.
+- [x] Suffix-matching blocklist (`*.youtube.com` etc.).
+- [x] Respond `NXDOMAIN` or `0.0.0.0`/`::` for blocked names.
+- [x] Seed list: `youtube.com`, `youtu.be`, `googlevideo.com`, `ytimg.com`, `youtubei.googleapis.com`, `youtube-nocookie.com`. Do not block all of `googleapis.com`.
 
 ### 5. Upstream forwarding
 - [ ] Forward allowed queries to a DoH resolver (Cloudflare/Quad9).

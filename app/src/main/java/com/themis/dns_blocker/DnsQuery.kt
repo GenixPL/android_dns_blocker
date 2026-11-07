@@ -8,6 +8,7 @@ private const val DNS_PORT = 53
 private const val QUESTION_TAIL = 4 // QTYPE + QCLASS
 
 const val RCODE_NOERROR = 0
+const val RCODE_SERVFAIL = 2
 const val RCODE_NXDOMAIN = 3
 
 /** A DNS question received over IPv4/UDP. [dns] is the UDP payload up to the end of the first question. */
