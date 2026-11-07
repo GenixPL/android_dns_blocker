@@ -42,9 +42,9 @@ Personal-use Android app that blocks YouTube and other blacklisted sites via a l
 - [ ] Consider blocking DoT (port 853) if full traffic routing is added later (not possible with DNS-only routing).
 
 ### 7. App UI
-- [ ] Toggle to start/stop the VPN.
-- [ ] Blocklist editor (add/remove domains), persisted locally.
-- [ ] Enable Always-on VPN in Android settings so it survives reboot.
+- [x] Toggle to start/stop the VPN.
+- [x] Blocklist editor (add/remove domains), persisted locally; edits apply live without restarting the VPN.
+- [x] Enable Always-on VPN in Android settings so it survives reboot (button in the app opens the VPN settings; the toggle itself is a manual system step).
 
 ### 8. Personal extras
 - [ ] Query log screen (find which domains an app needs).

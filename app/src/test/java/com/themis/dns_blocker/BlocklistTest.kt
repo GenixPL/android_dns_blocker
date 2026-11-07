@@ -1,6 +1,8 @@
 package com.themis.dns_blocker
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -42,6 +44,22 @@ class BlocklistTest {
         assertTrue(l.isBlocked("use-application-dns.net"))
         assertFalse(l.isBlocked("google.com"))
         assertFalse(l.isBlocked("example.com"))
+    }
+
+    @Test
+    fun parseDomainCleansInput() {
+        assertEquals("foo.com", Blocklist.parseDomain("  https://Foo.com/some/path "))
+        assertEquals("a.b.co.uk", Blocklist.parseDomain("a.b.co.uk."))
+        assertEquals("foo.com", Blocklist.parseDomain("foo.com:8080"))
+    }
+
+    @Test
+    fun parseDomainRejectsInvalid() {
+        assertNull(Blocklist.parseDomain(""))
+        assertNull(Blocklist.parseDomain("localhost"))
+        assertNull(Blocklist.parseDomain("foo bar.com"))
+        assertNull(Blocklist.parseDomain("-foo.com"))
+        assertNull(Blocklist.parseDomain("foo..com"))
     }
 
     @Test

@@ -22,7 +22,6 @@ class DnsVpnService : VpnService() {
 
     private var tun: ParcelFileDescriptor? = null
     private var reader: Thread? = null
-    private val blocklist = Blocklist(Blocklist.DEFAULT_DOMAINS + Blocklist.DOH_DOMAINS)
     private val doh = DohClient()
     private var forwarder: ExecutorService = Executors.newFixedThreadPool(FORWARDER_THREADS)
 
@@ -37,6 +36,7 @@ class DnsVpnService : VpnService() {
 
     private fun start() {
         if (tun != null) return
+        BlocklistStore.init(this)
         startForeground(
             NOTIFICATION_ID,
             buildNotification(),
@@ -72,7 +72,7 @@ class DnsVpnService : VpnService() {
                 val n = input.read(buf)
                 if (n <= 0) continue
                 val query = parseDnsQuery(buf, n) ?: continue
-                if (blocklist.isBlocked(query.name)) {
+                if (BlocklistStore.blocklist.isBlocked(query.name)) {
                     Log.d(TAG, "DNS query: ${query.name} [blocked]")
                     reply(output, query, buildDnsResponse(query, RCODE_NXDOMAIN))
                 } else {

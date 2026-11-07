@@ -19,6 +19,17 @@ class Blocklist(domains: Collection<String>) {
     private fun normalize(name: String) = name.trim().trimEnd('.').lowercase()
 
     companion object {
+        private val DOMAIN = Regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$")
+
+        /** Cleans up user input ("https://Foo.com/path" -> "foo.com"); null if it isn't a valid domain. */
+        fun parseDomain(input: String): String? {
+            val host = input.trim().lowercase()
+                .removePrefix("https://").removePrefix("http://")
+                .substringBefore('/').substringBefore(':')
+                .trimEnd('.')
+            return host.takeIf { DOMAIN.matches(it) }
+        }
+
         // Not googleapis.com as a whole: other Google services depend on it.
         val DEFAULT_DOMAINS = listOf(
             "youtube.com",

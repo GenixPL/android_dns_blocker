@@ -2,8 +2,10 @@ package com.themis.dns_blocker
 
 import android.Manifest
 import android.app.Activity
+import android.content.Intent
 import android.net.VpnService
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -11,14 +13,23 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -30,10 +41,17 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        BlocklistStore.init(this)
         setContent {
             Dns_blockerTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    VpnToggle(modifier = Modifier.padding(innerPadding))
+                    Column(
+                        modifier = Modifier.padding(innerPadding).padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        VpnToggle()
+                        BlocklistEditor(modifier = Modifier.weight(1f))
+                    }
                 }
             }
         }
@@ -55,16 +73,60 @@ fun VpnToggle(modifier: Modifier = Modifier) {
     }
 
     Column(
-        modifier = modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(if (running) "DNS blocking is on" else "DNS blocking is off")
-        Button(onClick = {
-            if (running) DnsVpnService.stop(context)
-            else notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }) {
-            Text(if (running) "Stop" else "Start")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = {
+                if (running) DnsVpnService.stop(context)
+                else notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }) {
+                Text(if (running) "Stop" else "Start")
+            }
+            // Always-on VPN is a per-VPN setting in system settings; it restarts us after reboot.
+            TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_VPN_SETTINGS)) }) {
+                Text("Always-on VPN")
+            }
+        }
+    }
+}
+
+@Composable
+fun BlocklistEditor(modifier: Modifier = Modifier) {
+    val domains by BlocklistStore.domains.collectAsState()
+    var input by remember { mutableStateOf("") }
+    var invalid by remember { mutableStateOf(false) }
+
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Blocked domains (subdomains included)")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = input,
+                onValueChange = { input = it; invalid = false },
+                label = { Text("example.com") },
+                isError = invalid,
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+            )
+            Button(onClick = {
+                if (BlocklistStore.add(input)) input = "" else invalid = true
+            }) {
+                Text("Add")
+            }
+        }
+        LazyColumn {
+            items(domains, key = { it }) { domain ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(domain)
+                    TextButton(onClick = { BlocklistStore.remove(domain) }) { Text("Remove") }
+                }
+            }
         }
     }
 }
