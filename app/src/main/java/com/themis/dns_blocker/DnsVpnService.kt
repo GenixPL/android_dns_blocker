@@ -15,12 +15,16 @@ import kotlinx.coroutines.flow.StateFlow
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 class DnsVpnService : VpnService() {
 
     private var tun: ParcelFileDescriptor? = null
     private var reader: Thread? = null
     private val blocklist = Blocklist(Blocklist.DEFAULT_DOMAINS)
+    private val doh = DohClient()
+    private var forwarder: ExecutorService = Executors.newFixedThreadPool(FORWARDER_THREADS)
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
@@ -54,6 +58,7 @@ class DnsVpnService : VpnService() {
             return
         }
 
+        forwarder = Executors.newFixedThreadPool(FORWARDER_THREADS)
         reader = Thread({ readLoop(fd) }, "tun-reader").also { it.start() }
         _running.value = true
     }
@@ -67,20 +72,36 @@ class DnsVpnService : VpnService() {
                 val n = input.read(buf)
                 if (n <= 0) continue
                 val query = parseDnsQuery(buf, n) ?: continue
-                val blocked = blocklist.isBlocked(query.name)
-                Log.d(TAG, "DNS query: ${query.name}${if (blocked) " [blocked]" else ""}")
-                // Interim: allowed names get SERVFAIL until upstream forwarding exists.
-                val rcode = if (blocked) RCODE_NXDOMAIN else RCODE_SERVFAIL
-                output.write(buildUdpReply(query, buildDnsResponse(query, rcode)))
+                if (blocklist.isBlocked(query.name)) {
+                    Log.d(TAG, "DNS query: ${query.name} [blocked]")
+                    reply(output, query, buildDnsResponse(query, RCODE_NXDOMAIN))
+                } else {
+                    Log.d(TAG, "DNS query: ${query.name}")
+                    // Upstream lookups block, so run them off the reader thread.
+                    forwarder.execute {
+                        val answer = doh.query(query.payload) ?: buildDnsResponse(query, RCODE_SERVFAIL)
+                        reply(output, query, answer)
+                    }
+                }
             }
         } catch (e: IOException) {
             Log.d(TAG, "tun reader stopped: ${e.message}")
         }
     }
 
+    private fun reply(output: FileOutputStream, query: DnsQuery, dns: ByteArray) {
+        val packet = buildUdpReply(query, dns)
+        try {
+            synchronized(output) { output.write(packet) }
+        } catch (e: IOException) {
+            Log.d(TAG, "tun write failed: ${e.message}")
+        }
+    }
+
     private fun stop() {
         reader?.interrupt()
         reader = null
+        forwarder.shutdownNow()
         tun?.close()
         tun = null
         _running.value = false
@@ -121,6 +142,7 @@ class DnsVpnService : VpnService() {
         private const val TUN_ADDRESS = "10.0.0.1"
         private const val FAKE_DNS = "10.0.0.2"
         private const val MTU = 32767
+        private const val FORWARDER_THREADS = 8
 
         private val _running = MutableStateFlow(false)
         val running: StateFlow<Boolean> = _running

@@ -11,7 +11,10 @@ const val RCODE_NOERROR = 0
 const val RCODE_SERVFAIL = 2
 const val RCODE_NXDOMAIN = 3
 
-/** A DNS question received over IPv4/UDP. [dns] is the UDP payload up to the end of the first question. */
+/**
+ * A DNS question received over IPv4/UDP. [dns] is the UDP payload up to the end of the first question,
+ * [payload] is the whole UDP payload (including any EDNS record), for forwarding upstream.
+ */
 class DnsQuery(
     val name: String,
     val srcAddr: ByteArray,
@@ -19,6 +22,7 @@ class DnsQuery(
     val srcPort: Int,
     val dstPort: Int,
     val dns: ByteArray,
+    val payload: ByteArray,
 )
 
 /** Returns the query if [packet] is an IPv4/UDP datagram to port 53 with a DNS question, else null. */
@@ -48,6 +52,7 @@ fun parseDnsQuery(packet: ByteArray, length: Int): DnsQuery? {
                 srcPort = u16(packet, ipHeaderLen),
                 dstPort = dstPort,
                 dns = packet.copyOfRange(dnsStart, questionEnd),
+                payload = packet.copyOfRange(dnsStart, length),
             )
         }
         if (labelLen > 63 || pos + 1 + labelLen > length) return null

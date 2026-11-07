@@ -33,9 +33,9 @@ Personal-use Android app that blocks YouTube and other blacklisted sites via a l
 - [x] Seed list: `youtube.com`, `youtu.be`, `googlevideo.com`, `ytimg.com`, `youtubei.googleapis.com`, `youtube-nocookie.com`. Do not block all of `googleapis.com`.
 
 ### 5. Upstream forwarding
-- [ ] Forward allowed queries to a DoH resolver (Cloudflare/Quad9).
-- [ ] Call `VpnService.protect()` on upstream sockets to avoid routing loops.
-- [ ] Use short TTLs on answers to limit stale cache.
+- [x] Forward allowed queries to a DoH resolver (Cloudflare, via IP literal `1.1.1.1` so no bootstrap lookup is needed).
+- [x] Routing loops: not an issue. Only the fake DNS /32 is routed into the TUN, so upstream sockets never enter it and `protect()` is unnecessary.
+- [ ] Use short TTLs on answers to limit stale cache (needs answer-record rewriting; not done).
 
 ### 6. Close bypasses
 - [ ] Block known DoH hostnames (`dns.google`, `cloudflare-dns.com`, ...) so browsers can't use their own encrypted DNS.
