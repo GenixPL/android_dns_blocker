@@ -16,11 +16,11 @@ Personal-use Android app that blocks YouTube and other blacklisted sites via a l
 - [x] Declare `BIND_VPN_SERVICE` service and foreground-service permissions in the manifest.
 
 ### 2. VPN plumbing
-- [ ] Implement `VpnService` subclass.
-- [ ] Request VPN consent via `VpnService.prepare()`.
-- [ ] Build the TUN: address, `addDnsServer(10.0.0.2)`, `addRoute(10.0.0.2, 32)`.
-- [ ] Run as a foreground service with a notification.
-- [ ] Read packets from the TUN and log the DNS queries seen (sanity check).
+- [x] Implement `VpnService` subclass.
+- [x] Request VPN consent via `VpnService.prepare()`.
+- [x] Build the TUN: address, `addDnsServer(10.0.0.2)`, `addRoute(10.0.0.2, 32)`.
+- [x] Run as a foreground service with a notification.
+- [x] Read packets from the TUN and log the DNS queries seen (sanity check).
 
 ### 3. DNS handling
 - [ ] Parse IPv4/UDP packets, extract the DNS question.
