@@ -2,6 +2,7 @@ package com.themis.dns_blocker
 
 import android.Manifest
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.net.VpnService
 import android.os.Bundle
@@ -20,6 +21,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -44,19 +49,49 @@ class MainActivity : ComponentActivity() {
         BlocklistStore.init(this)
         setContent {
             Dns_blockerTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                var screen by remember { mutableStateOf(Screen.Blocked) }
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    bottomBar = {
+                        NavigationBar {
+                            Screen.entries.forEach {
+                                NavigationBarItem(
+                                    selected = screen == it,
+                                    onClick = { screen = it },
+                                    icon = {},
+                                    label = { Text(it.label) },
+                                    alwaysShowLabel = true,
+                                )
+                            }
+                        }
+                    },
+                ) { innerPadding ->
                     Column(
                         modifier = Modifier.padding(innerPadding).padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         VpnToggle()
-                        BlocklistEditor(modifier = Modifier.weight(1f))
+                        when (screen) {
+                            Screen.Blocked -> BlocklistEditor(modifier = Modifier.weight(1f))
+                            Screen.Apps -> AllowedAppsScreen(modifier = Modifier.weight(1f))
+                            Screen.Domains -> ExcludedDomainsScreen(modifier = Modifier.weight(1f))
+                        }
                     }
                 }
             }
         }
     }
 }
+
+private enum class Screen(val label: String) {
+    Blocked("Blocked"),
+    Apps("Allowed apps"),
+    Domains("Excluded domains"),
+}
+
+private const val PRECEDENCE_NOTE =
+    "Allowed apps are checked first: they bypass the VPN entirely, so neither the blocklist nor " +
+        "the excluded domains apply to them. Excluded domains only matter for all other apps."
 
 @Composable
 fun VpnToggle(modifier: Modifier = Modifier) {
@@ -96,11 +131,43 @@ fun VpnToggle(modifier: Modifier = Modifier) {
 @Composable
 fun BlocklistEditor(modifier: Modifier = Modifier) {
     val domains by BlocklistStore.domains.collectAsState()
+    DomainEditor(
+        title = "Blocked domains (subdomains included)",
+        domains = domains,
+        onAdd = BlocklistStore::add,
+        onRemove = BlocklistStore::remove,
+        modifier = modifier,
+    )
+}
+
+@Composable
+fun ExcludedDomainsScreen(modifier: Modifier = Modifier) {
+    val domains by BlocklistStore.excludedDomains.collectAsState()
+    DomainEditor(
+        title = "Excluded domains: never blocked, even if a parent domain is (e.g. music.youtube.com)",
+        note = PRECEDENCE_NOTE,
+        domains = domains,
+        onAdd = BlocklistStore::addExcluded,
+        onRemove = BlocklistStore::removeExcluded,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun DomainEditor(
+    title: String,
+    domains: List<String>,
+    onAdd: (String) -> Boolean,
+    onRemove: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    note: String? = null,
+) {
     var input by remember { mutableStateOf("") }
     var invalid by remember { mutableStateOf(false) }
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Blocked domains (subdomains included)")
+        Text(title)
+        if (note != null) Text(note, style = MaterialTheme.typography.bodySmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
                 value = input,
@@ -111,7 +178,7 @@ fun BlocklistEditor(modifier: Modifier = Modifier) {
                 modifier = Modifier.weight(1f),
             )
             Button(onClick = {
-                if (BlocklistStore.add(input)) input = "" else invalid = true
+                if (onAdd(input)) input = "" else invalid = true
             }) {
                 Text("Add")
             }
@@ -124,7 +191,58 @@ fun BlocklistEditor(modifier: Modifier = Modifier) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(domain)
-                    TextButton(onClick = { BlocklistStore.remove(domain) }) { Text("Remove") }
+                    TextButton(onClick = { onRemove(domain) }) { Text("Remove") }
+                }
+            }
+        }
+    }
+}
+
+private data class AppEntry(val pkg: String, val label: String)
+
+private fun launchableApps(context: Context): List<AppEntry> {
+    val pm = context.packageManager
+    val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+    return pm.queryIntentActivities(intent, 0)
+        .map { AppEntry(it.activityInfo.packageName, it.loadLabel(pm).toString()) }
+        .filter { it.pkg != context.packageName }
+        .distinctBy { it.pkg }
+}
+
+@Composable
+fun AllowedAppsScreen(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val running by DnsVpnService.running.collectAsState()
+    val allowed by BlocklistStore.allowedApps.collectAsState()
+    val installed = remember { launchableApps(context) }
+    // Allowed apps that are no longer installed stay listed (by package name) so they can be removed.
+    val entries = remember(installed, allowed) {
+        (installed + allowed.filter { pkg -> installed.none { it.pkg == pkg } }.map { AppEntry(it, it) })
+            .sortedWith(compareByDescending<AppEntry> { it.pkg in allowed }.thenBy { it.label.lowercase() })
+    }
+
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Allowed apps: their traffic bypasses the VPN and is never blocked")
+        Text(PRECEDENCE_NOTE, style = MaterialTheme.typography.bodySmall)
+        if (running) Text("Changes restart the VPN.", style = MaterialTheme.typography.bodySmall)
+        LazyColumn {
+            items(entries, key = { it.pkg }) { app ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(app.label)
+                        Text(app.pkg, style = MaterialTheme.typography.bodySmall)
+                    }
+                    Checkbox(
+                        checked = app.pkg in allowed,
+                        onCheckedChange = {
+                            BlocklistStore.setAppAllowed(app.pkg, it)
+                            if (running) DnsVpnService.reload(context)
+                        },
+                    )
                 }
             }
         }

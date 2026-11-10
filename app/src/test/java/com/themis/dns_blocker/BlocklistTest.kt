@@ -37,6 +37,22 @@ class BlocklistTest {
     }
 
     @Test
+    fun allowedSubdomainOverridesBlockedParent() {
+        val l = Blocklist(listOf("youtube.com"), listOf("music.youtube.com"))
+        assertFalse(l.isBlocked("music.youtube.com"))
+        assertFalse(l.isBlocked("a.music.youtube.com"))
+        assertTrue(l.isBlocked("www.youtube.com"))
+        assertTrue(l.isBlocked("youtube.com"))
+    }
+
+    @Test
+    fun moreSpecificBlockBeatsAllowedParent() {
+        val l = Blocklist(listOf("ads.music.youtube.com"), listOf("music.youtube.com"))
+        assertTrue(l.isBlocked("ads.music.youtube.com"))
+        assertFalse(l.isBlocked("music.youtube.com"))
+    }
+
+    @Test
     fun dohDomainsBlockResolversAndFirefoxCanary() {
         val l = Blocklist(Blocklist.DOH_DOMAINS)
         assertTrue(l.isBlocked("dns.google"))

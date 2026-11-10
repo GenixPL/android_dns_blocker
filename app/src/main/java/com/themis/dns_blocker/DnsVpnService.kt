@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.net.VpnService
 import android.os.ParcelFileDescriptor
@@ -30,6 +31,7 @@ class DnsVpnService : VpnService() {
             stop()
             return START_NOT_STICKY
         }
+        if (intent?.action == ACTION_RELOAD) teardown()
         start()
         return START_STICKY
     }
@@ -43,13 +45,20 @@ class DnsVpnService : VpnService() {
             ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED,
         )
 
-        tun = Builder()
+        val builder = Builder()
             .setSession(getString(R.string.app_name))
             .addAddress(TUN_ADDRESS, 24)
             .addDnsServer(FAKE_DNS)
             .addRoute(FAKE_DNS, 32)
             .setBlocking(true)
-            .establish()
+        for (pkg in BlocklistStore.allowedApps.value) {
+            try {
+                builder.addDisallowedApplication(pkg)
+            } catch (e: PackageManager.NameNotFoundException) {
+                Log.d(TAG, "$pkg not installed, nothing to exclude")
+            }
+        }
+        tun = builder.establish()
 
         val fd = tun
         if (fd == null) {
@@ -98,12 +107,16 @@ class DnsVpnService : VpnService() {
         }
     }
 
-    private fun stop() {
+    private fun teardown() {
         reader?.interrupt()
         reader = null
         forwarder.shutdownNow()
         tun?.close()
         tun = null
+    }
+
+    private fun stop() {
+        teardown()
         _running.value = false
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -135,6 +148,7 @@ class DnsVpnService : VpnService() {
 
     companion object {
         const val ACTION_STOP = "com.themis.dns_blocker.STOP"
+        private const val ACTION_RELOAD = "com.themis.dns_blocker.RELOAD"
 
         private const val TAG = "DnsVpnService"
         private const val CHANNEL_ID = "vpn"
@@ -149,6 +163,11 @@ class DnsVpnService : VpnService() {
 
         fun start(context: Context) {
             context.startForegroundService(Intent(context, DnsVpnService::class.java))
+        }
+
+        /** Re-establishes the tunnel so a changed allowed-apps list takes effect. */
+        fun reload(context: Context) {
+            context.startForegroundService(Intent(context, DnsVpnService::class.java).setAction(ACTION_RELOAD))
         }
 
         fun stop(context: Context) {

@@ -1,13 +1,15 @@
 package com.themis.dns_blocker
 
-/** Blocks a domain and all of its subdomains. */
-class Blocklist(domains: Collection<String>) {
+/** Blocks a domain and all of its subdomains, except those covered by a more specific [allowed] entry. */
+class Blocklist(domains: Collection<String>, allowed: Collection<String> = emptyList()) {
 
     private val blocked = domains.map(::normalize).filter { it.isNotEmpty() }.toSet()
+    private val allowed = allowed.map(::normalize).filter { it.isNotEmpty() }.toSet()
 
     fun isBlocked(name: String): Boolean {
         var candidate = normalize(name)
         while (candidate.isNotEmpty()) {
+            if (candidate in allowed) return false
             if (candidate in blocked) return true
             val dot = candidate.indexOf('.')
             if (dot < 0) return false
@@ -38,6 +40,11 @@ class Blocklist(domains: Collection<String>) {
             "googlevideo.com",
             "ytimg.com",
             "youtubei.googleapis.com",
+        )
+
+        // Carved out of the blocked domains above.
+        val DEFAULT_ALLOWED = listOf(
+            "music.youtube.com",
         )
 
         // Public DoH/DoT resolvers, so browsers and apps can't bypass us with their own encrypted DNS.
