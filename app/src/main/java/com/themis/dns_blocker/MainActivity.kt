@@ -46,6 +46,7 @@ import com.themis.dns_blocker.ui.theme.Dns_blockerTheme
 // TODO(genix): add persistent notification
 // TODO(genix): add on/off from notification
 // TODO(genix): limit actors who can push to release
+// TODO(genix): update end date in portfolio
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

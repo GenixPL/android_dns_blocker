@@ -8,3 +8,9 @@
 -keep class * extends androidx.glance.appwidget.GlanceAppWidget { <init>(); }
 -keep class * extends androidx.glance.appwidget.GlanceAppWidgetReceiver { <init>(); }
 -keep class * implements androidx.glance.appwidget.action.ActionCallback { <init>(); }
+
+# WorkManager (which Glance runs on) instantiates these reflectively via Class.newInstance();
+# the bundled rules don't keep their constructors, so the widget session never starts.
+-keep class * extends androidx.work.InputMerger { <init>(); }
+-keep class * extends androidx.work.ListenableWorker { <init>(android.content.Context, androidx.work.WorkerParameters); }
+-keep class * extends androidx.work.WorkerFactory { <init>(); }
