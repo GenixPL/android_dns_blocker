@@ -60,7 +60,6 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
         with:
-          build-root-directory: src
           # Runs only on `release` (not the default branch), where the cache is read-only by default.
           cache-read-only: false
 
