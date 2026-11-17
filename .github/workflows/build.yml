@@ -1,0 +1,98 @@
+name: Build APK
+
+on:
+  push:
+    branches: [release]
+
+concurrency:
+  group: build-apk
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # Source of the pushed `release` commit; this is what Gradle builds.
+      - uses: actions/checkout@v4
+        with:
+          path: src
+
+      # The `builds` branch in its own folder: holds version.txt and receives the new APK.
+      # Needs a separate checkout because one checkout only provides one branch.
+      - uses: actions/checkout@v4
+        with:
+          ref: builds
+          path: builds
+
+      # version.txt on the builds branch has two lines:
+      #   line 1: version name, MAJOR.MINOR.PATCH (e.g. 1.0.0)
+      #   line 2: version code, an integer (e.g. 1)
+      # Every build bumps PATCH and the version code by one. To bump MAJOR/MINOR, edit line 1 by hand.
+      - name: Compute next version
+        id: version
+        run: |
+          previous_name=$(sed -n 1p builds/version.txt)
+          previous_code=$(sed -n 2p builds/version.txt)
+
+          IFS=. read -r major minor patch <<< "$previous_name"
+          version_name="$major.$minor.$((patch + 1))"
+
+          # Android refuses to update an app unless this integer is higher than the installed one.
+          version_code=$((previous_code + 1))
+
+          echo "Building $version_name (code $version_code)"
+          echo "name=$version_name" >> "$GITHUB_OUTPUT"
+          echo "code=$version_code" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          build-root-directory: src
+          # Runs only on `release` (not the default branch), where the cache is read-only by default.
+          cache-read-only: false
+
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
+      - name: Build release APK
+        working-directory: src
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: >
+          ./gradlew assembleRelease
+          -PappVersionName=${{ steps.version.outputs.name }}
+          -PappVersionCode=${{ steps.version.outputs.code }}
+
+      # Copy the new APK and version info into the builds branch, then commit and push.
+      - name: Publish to builds branch
+        working-directory: builds
+        run: |
+          built_apk="../src/app/build/outputs/apk/release/app-release.apk"
+
+          # The file name must never change (or include the version): the public
+          # download link points at builds/and_blocker.apk and has to stay stable.
+          published_apk="builds/and_blocker.apk"
+
+          mkdir -p builds
+          touch builds/.gitkeep
+          cp "$built_apk" "$published_apk"
+          printf '%s\n%s\n' "${{ steps.version.outputs.name }}" "${{ steps.version.outputs.code }}" > version.txt
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions@github.com"
+          git add --all
+          git commit -m "Build ${{ steps.version.outputs.name }} from ${{ github.sha }}"
+          git push origin builds

@@ -1,7 +1,17 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
+
+// Release signing comes from env vars (CI) or local.properties. Debug builds always
+// use Gradle's default debug key, so the release keystore is not needed locally.
+val localProps = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use(::load)
+}
+fun signingValue(env: String, prop: String): String? =
+    System.getenv(env) ?: localProps.getProperty(prop)
 
 android {
     namespace = "com.themis.dns_blocker"
@@ -13,14 +23,26 @@ android {
         applicationId = "com.themis.dns_blocker"
         minSdk = 31
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = (project.findProperty("appVersionCode") as String?)?.toInt() ?: 1
+        versionName = (project.findProperty("appVersionName") as String?) ?: "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    val keystorePath = signingValue("KEYSTORE_PATH", "keystore.path")
+    if (keystorePath != null) {
+        signingConfigs {
+            create("shared") {
+                storeFile = file(keystorePath)
+                storePassword = signingValue("KEYSTORE_PASSWORD", "keystore.password")
+                keyAlias = signingValue("KEY_ALIAS", "key.alias")
+                keyPassword = signingValue("KEY_PASSWORD", "key.password")
+            }
+        }
+    }
     buildTypes {
         release {
+            signingConfigs.findByName("shared")?.let { signingConfig = it }
             optimization {
                 enable = true
                 packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
