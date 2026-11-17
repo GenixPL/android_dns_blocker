@@ -60,7 +60,6 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
         with:
-          build-root-directory: src
           # Runs only on `release` (not the default branch), where the cache is read-only by default.
           cache-read-only: false
 
@@ -88,7 +87,7 @@ jobs:
 
           # The file name must never change (or include the version): the public
           # download link points at builds/and_blocker.apk and has to stay stable.
-          published_apk="builds/and_blocker.apk"
+          published_apk="builds/dns_blocker.apk"
 
           mkdir -p builds
           touch builds/.gitkeep
