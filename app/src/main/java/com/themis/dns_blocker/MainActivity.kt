@@ -42,6 +42,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.themis.dns_blocker.ui.theme.Dns_blockerTheme
 
+
+// TODO(genix): add persistent notification
+// TODO(genix): add on/off from notification
+// TODO(genix): limit actors who can push to release
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
