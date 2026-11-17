@@ -2,3 +2,9 @@
 # keeps RoomDatabase subclasses but not their constructors, so Room's reflective
 # instantiation of WorkDatabase_Impl fails at startup in release builds.
 -keep class * extends androidx.room.RoomDatabase { <init>(); }
+
+# Glance instantiates widgets and action callbacks reflectively by class name; without these
+# R8 strips/renames their constructors and the home widget never renders or responds.
+-keep class * extends androidx.glance.appwidget.GlanceAppWidget { <init>(); }
+-keep class * extends androidx.glance.appwidget.GlanceAppWidgetReceiver { <init>(); }
+-keep class * implements androidx.glance.appwidget.action.ActionCallback { <init>(); }

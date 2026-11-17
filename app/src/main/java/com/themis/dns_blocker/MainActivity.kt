@@ -51,6 +51,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         BlocklistStore.init(this)
+        if (intent.getBooleanExtra(EXTRA_REQUEST_VPN, false)) requestVpnFromWidget()
         setContent {
             Dns_blockerTheme {
                 var screen by remember { mutableStateOf(Screen.Blocked) }
@@ -85,7 +86,22 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    private fun requestVpnFromWidget() {
+        val prepare = VpnService.prepare(this) ?: return DnsVpnService.start(this)
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) DnsVpnService.start(this)
+        }.launch(prepare)
+    }
 }
+
+private const val EXTRA_REQUEST_VPN = "com.themis.dns_blocker.REQUEST_VPN"
+
+/** Intent the widget uses when VPN consent is missing: opens the app and asks for it straight away. */
+fun vpnConsentIntent(context: Context): Intent =
+    Intent(context, MainActivity::class.java)
+        .putExtra(EXTRA_REQUEST_VPN, true)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
 private enum class Screen(val label: String) {
     Blocked("Blocked"),

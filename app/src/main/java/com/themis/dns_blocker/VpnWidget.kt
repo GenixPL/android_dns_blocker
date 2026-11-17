@@ -72,9 +72,7 @@ class ToggleVpnAction : ActionCallback {
             DnsVpnService.start(context)
         } else {
             // VPN consent has never been granted (or was revoked); only an activity can ask for it.
-            context.startActivity(
-                Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
+            context.startActivity(vpnConsentIntent(context))
         }
     }
 }
