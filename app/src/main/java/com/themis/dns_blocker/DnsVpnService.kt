@@ -11,8 +11,12 @@ import android.content.pm.ServiceInfo
 import android.net.VpnService
 import android.os.ParcelFileDescriptor
 import android.util.Log
+import androidx.glance.appwidget.updateAll
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
@@ -69,7 +73,12 @@ class DnsVpnService : VpnService() {
 
         forwarder = Executors.newFixedThreadPool(FORWARDER_THREADS)
         reader = Thread({ readLoop(fd) }, "tun-reader").also { it.start() }
-        _running.value = true
+        setRunning(true)
+    }
+
+    private fun setRunning(value: Boolean) {
+        _running.value = value
+        CoroutineScope(Dispatchers.Default).launch { VpnWidget().updateAll(applicationContext) }
     }
 
     private fun readLoop(fd: ParcelFileDescriptor) {
@@ -117,7 +126,7 @@ class DnsVpnService : VpnService() {
 
     private fun stop() {
         teardown()
-        _running.value = false
+        setRunning(false)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }

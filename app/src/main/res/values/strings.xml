@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">dns_blocker</string>
+    <string name="widget_description">Turn DNS blocking on or off</string>
 </resources>
