@@ -42,17 +42,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.themis.dns_blocker.ui.theme.Dns_blockerTheme
 
-
-// TODO(genix): add persistent notification
-// TODO(genix): add on/off from notification
-// TODO(genix): limit actors who can push to release
-// TODO(genix): update end date in portfolio
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         BlocklistStore.init(this)
         if (intent.getBooleanExtra(EXTRA_REQUEST_VPN, false)) requestVpnFromWidget()
+        else if (!DnsVpnService.running.value) DnsVpnService.showIdle(this)
         setContent {
             Dns_blockerTheme {
                 var screen by remember { mutableStateOf(Screen.Blocked) }
@@ -73,7 +69,9 @@ class MainActivity : ComponentActivity() {
                     },
                 ) { innerPadding ->
                     Column(
-                        modifier = Modifier.padding(innerPadding).padding(16.dp),
+                        modifier = Modifier
+                            .padding(innerPadding)
+                            .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         VpnToggle()
@@ -112,7 +110,7 @@ private enum class Screen(val label: String) {
 
 private const val PRECEDENCE_NOTE =
     "Allowed apps are checked first: they bypass the VPN entirely, so neither the blocklist nor " +
-        "the excluded domains apply to them. Excluded domains only matter for all other apps."
+            "the excluded domains apply to them. Excluded domains only matter for all other apps."
 
 @Composable
 fun VpnToggle(modifier: Modifier = Modifier) {

@@ -11,6 +11,7 @@ import android.content.pm.ServiceInfo
 import android.net.VpnService
 import android.os.ParcelFileDescriptor
 import android.util.Log
+import android.widget.RemoteViews
 import androidx.glance.appwidget.updateAll
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,13 +32,18 @@ class DnsVpnService : VpnService() {
     private var forwarder: ExecutorService = Executors.newFixedThreadPool(FORWARDER_THREADS)
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) {
-            stop()
-            return START_NOT_STICKY
+        when (intent?.action) {
+            ACTION_STOP -> turnOff()
+            ACTION_IDLE -> if (tun == null) showIdle()
+            ACTION_TOGGLE -> toggle()
+            ACTION_RELOAD -> {
+                teardown()
+                start()
+            }
+            else -> start()
         }
-        if (intent?.action == ACTION_RELOAD) teardown()
-        start()
-        return START_STICKY
+        // A killed idle service must not come back and start the VPN on its own.
+        return if (tun != null) START_STICKY else START_NOT_STICKY
     }
 
     private fun start() {
@@ -45,7 +51,7 @@ class DnsVpnService : VpnService() {
         BlocklistStore.init(this)
         startForeground(
             NOTIFICATION_ID,
-            buildNotification(),
+            buildNotification(on = true),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED,
         )
 
@@ -67,7 +73,7 @@ class DnsVpnService : VpnService() {
         val fd = tun
         if (fd == null) {
             Log.e(TAG, "establish() returned null: VPN permission not granted")
-            stop()
+            turnOff()
             return
         }
 
@@ -124,21 +130,42 @@ class DnsVpnService : VpnService() {
         tun = null
     }
 
-    private fun stop() {
+    /** Stops blocking but keeps the service in the foreground so the notification can turn it back on. */
+    private fun turnOff() {
         teardown()
         setRunning(false)
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        showIdle()
     }
 
-    override fun onRevoke() = stop()
+    private fun showIdle() {
+        startForeground(
+            NOTIFICATION_ID,
+            buildNotification(on = false),
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED,
+        )
+    }
+
+    private fun toggle() {
+        when {
+            tun != null -> turnOff()
+            VpnService.prepare(this) == null -> start()
+            else -> {
+                // Only an activity can ask for VPN consent.
+                showIdle()
+                startActivity(vpnConsentIntent(this))
+            }
+        }
+    }
+
+    override fun onRevoke() = turnOff()
 
     override fun onDestroy() {
-        stop()
+        teardown()
+        setRunning(false)
         super.onDestroy()
     }
 
-    private fun buildNotification(): Notification {
+    private fun buildNotification(on: Boolean): Notification {
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL_ID, getString(R.string.app_name), NotificationManager.IMPORTANCE_LOW),
@@ -146,11 +173,19 @@ class DnsVpnService : VpnService() {
         val open = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE,
         )
+        val toggle = PendingIntent.getForegroundService(
+            this, 1, Intent(this, DnsVpnService::class.java).setAction(ACTION_TOGGLE), PendingIntent.FLAG_IMMUTABLE,
+        )
+        val content = RemoteViews(packageName, R.layout.notification_toggle).apply {
+            setTextViewText(R.id.notification_status, if (on) "DNS blocking is active" else "DNS blocking is off")
+            setTextViewText(R.id.notification_toggle, if (on) "Turn off" else "Turn on")
+            setOnClickPendingIntent(R.id.notification_toggle, toggle)
+        }
         return Notification.Builder(this, CHANNEL_ID)
-            .setContentTitle(getString(R.string.app_name))
-            .setContentText("DNS blocking is active")
             .setSmallIcon(android.R.drawable.ic_lock_lock)
             .setContentIntent(open)
+            .setStyle(Notification.DecoratedCustomViewStyle())
+            .setCustomContentView(content)
             .setOngoing(true)
             .build()
     }
@@ -158,6 +193,8 @@ class DnsVpnService : VpnService() {
     companion object {
         const val ACTION_STOP = "com.themis.dns_blocker.STOP"
         private const val ACTION_RELOAD = "com.themis.dns_blocker.RELOAD"
+        private const val ACTION_IDLE = "com.themis.dns_blocker.IDLE"
+        private const val ACTION_TOGGLE = "com.themis.dns_blocker.TOGGLE"
 
         private const val TAG = "DnsVpnService"
         private const val CHANNEL_ID = "vpn"
@@ -172,6 +209,11 @@ class DnsVpnService : VpnService() {
 
         fun start(context: Context) {
             context.startForegroundService(Intent(context, DnsVpnService::class.java))
+        }
+
+        /** Posts the notification while the VPN is off, so it can be turned on from there. */
+        fun showIdle(context: Context) {
+            context.startForegroundService(Intent(context, DnsVpnService::class.java).setAction(ACTION_IDLE))
         }
 
         /** Re-establishes the tunnel so a changed allowed-apps list takes effect. */
